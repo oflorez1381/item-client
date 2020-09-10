@@ -22,7 +22,7 @@ public class ItemClientController {
     WebClient webClient = WebClient.create("http://localhost:8080");
 
     @GetMapping("/client/retrieve")
-    public Flux<Item> getAllItemsUsingRetrieve(){
+    public Flux<Item> getAllItemsUsingRetrieve() {
         return webClient.get().uri("/v1/items")
                 .retrieve()
                 .bodyToFlux(Item.class)
@@ -30,7 +30,7 @@ public class ItemClientController {
     }
 
     @GetMapping("/client/exchange")
-    public Flux<Item> getAllItemsUsingExchange(){
+    public Flux<Item> getAllItemsUsingExchange() {
         return webClient.get().uri("/v1/items")
                 .exchange()
                 .flatMapMany(clientResponse -> clientResponse.bodyToFlux(Item.class))
@@ -38,7 +38,7 @@ public class ItemClientController {
     }
 
     @GetMapping("/client/retrieve/singleItem/{id}")
-    public Mono<Item> getOneItemUsingRetrieve(@PathVariable String id){
+    public Mono<Item> getOneItemUsingRetrieve(@PathVariable String id) {
         return webClient.get().uri("/v1/items/{id}", id)
                 .retrieve()
                 .bodyToMono(Item.class)
@@ -46,7 +46,7 @@ public class ItemClientController {
     }
 
     @GetMapping("/client/exchange/singleItem/{id}")
-    public Mono<Item> getOneItemUsingExchange(@PathVariable String id){
+    public Mono<Item> getOneItemUsingExchange(@PathVariable String id) {
         return webClient.get().uri("/v1/items/{id}", id)
                 .exchange()
                 .flatMap(clientResponse -> clientResponse.bodyToMono(Item.class))
@@ -54,7 +54,7 @@ public class ItemClientController {
     }
 
     @PostMapping("/client/createItem/retrieve")
-    public Mono<Item> createItem(@RequestBody Item item){
+    public Mono<Item> createItem(@RequestBody Item item) {
         Mono<Item> itemMono = Mono.just(item);
         return webClient.post().uri("/v1/items")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -65,7 +65,7 @@ public class ItemClientController {
     }
 
     @PostMapping("/client/createItem/exchange")
-    public Mono<Item> createItemExchange(@RequestBody Item item){
+    public Mono<Item> createItemExchange(@RequestBody Item item) {
         Mono<Item> itemMono = Mono.just(item);
         return webClient.post().uri("/v1/items")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -76,9 +76,9 @@ public class ItemClientController {
     }
 
     @PutMapping("/client/updateItem/{id}")
-    public Mono<Item> updateItem(@PathVariable String id, @RequestBody Item item){
+    public Mono<Item> updateItem(@PathVariable String id, @RequestBody Item item) {
         Mono<Item> itemMono = Mono.just(item);
-        return webClient.put().uri("/v1/items/{id}",id)
+        return webClient.put().uri("/v1/items/{id}", id)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(itemMono, Item.class)
                 .retrieve()
@@ -87,26 +87,44 @@ public class ItemClientController {
     }
 
     @DeleteMapping("/client/deleteItem/{id}")
-    public Mono<Void> deleteItem(@PathVariable String id){
-        return webClient.delete().uri("/v1/items/{id}",id)
+    public Mono<Void> deleteItem(@PathVariable String id) {
+        return webClient.delete().uri("/v1/items/{id}", id)
                 .retrieve()
                 .bodyToMono(Void.class)
                 .log("Deleted Item");
     }
 
     @GetMapping("/client/retrieve/error")
-    public Flux<Item> errorRetrieve(){
+    public Flux<Item> errorRetrieve() {
         return webClient.get()
                 .uri("/v1/items/runtimeException")
                 .retrieve()
                 .onStatus(HttpStatus::is5xxServerError, clientResponse -> {
                     Mono<String> errorMono = clientResponse.bodyToMono(String.class);
                     return errorMono.flatMap((errorMessage) -> {
-                       log.error("The Error Message is: " + errorMessage);
+                        log.error("The Error Message is: " + errorMessage);
 //                       throw new RuntimeException(errorMessage);
                         return Mono.error(new RuntimeException(errorMessage));
                     });
                 }).bodyToFlux(Item.class);
+    }
+
+    @GetMapping("/client/exchange/error")
+    public Flux<Item> errorExchange() {
+        return webClient.get()
+                .uri("/v1/items/runtimeException")
+                .exchange()
+                .flatMapMany((clientResponse -> {
+                    if (clientResponse.statusCode().is5xxServerError()) {
+                        return clientResponse.bodyToMono(String.class)
+                                .flatMap(errorMessage -> {
+                                    log.error("Error Message in errorExchange : " + errorMessage);
+                                    throw new RuntimeException(errorMessage);
+                                });
+                    } else {
+                        return clientResponse.bodyToFlux(Item.class);
+                    }
+                }));
     }
 
 }
